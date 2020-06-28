@@ -8,8 +8,8 @@ import sys
 
 def load_data_fashion_mnist(batch_size):
 
-    mnist_train = torchvision.datasets.FashionMNIST("~/Datasets/FashionMNIST",train=True,download=True,transform=transforms.ToTensor())
-    mnist_test = torchvision.datasets.FashionMNIST("~/Datasets/FashionMNIST",train=False,download=True,transform=transforms.ToTensor())
+    mnist_train = torchvision.datasets.FashionMNIST("../../Datasets/FashionMNIST",train=True,download=True,transform=transforms.ToTensor())
+    mnist_test = torchvision.datasets.FashionMNIST("../../Datasets/FashionMNIST",train=False,download=True,transform=transforms.ToTensor())
 
 
     train_iter = torch.utils.data.DataLoader(mnist_train,batch_size=batch_size,shuffle=True,num_workers=4)
@@ -50,6 +50,14 @@ def sgd(params, lr, batch_size):
         param.data -= lr * param.grad / batch_size
 
 
+class FlattenLayer(torch.nn.Module):
+    def __init__(self):
+        super(FlattenLayer, self).__init__()
+
+    def forward(self, X):
+        return X.view(X.shape[0], -1)
+
+
 def train_ch3(net, train_iter, test_iter, loss, num_epochs, batch_size, params=None, lr=None, optimizer=None):
 
     print("changeing train")
@@ -69,7 +77,7 @@ def train_ch3(net, train_iter, test_iter, loss, num_epochs, batch_size, params=N
 
             l.backward()
             if optimizer is None:
-                d2l.sgd(params, lr, batch_size)
+                sgd(params, lr, batch_size)
             else:
                 optimizer.step()
 

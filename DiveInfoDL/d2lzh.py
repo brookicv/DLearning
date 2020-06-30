@@ -104,3 +104,14 @@ def semilogy(x_vals,y_vals,x_label,y_label,x2_vals=None,y2_vals=None,legend=None
     if x2_vals and y2_vals:
         plt.semilogy(x2_vals,y2_vals,linestyle=':')
         plt.legend(legend)
+
+
+def corr2d(x, k):
+    h, w = k.shape
+
+    y = torch.zeros((x.shape[0] - h + 1, x.shape[1] - w + 1))
+    for i in range(y.shape[0]):
+        for j in range(y.shape[1]):
+            y[i, j] = (x[i:i + h, j:j + w] * k).sum()
+
+    return y

@@ -39,11 +39,13 @@ def show_fashion_mnist(images,labels):
 
 
 def evaluate_accuracy(data_iter, net):
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     acc_sum, n = 0.0, 0
     for X, y in data_iter:
         if isinstance(net, torch.nn.Module):
             net.eval() # 评估模式，关闭dropout
-            acc_sum += (net(X).argmax(dim=1) == y).float().sum().item()
+            acc_sum += (net(X.to(device)).argmax(dim=1) == y.to(device)).float().sum().cpu().item()
             net.train()
         else:
             if ('is_training' in net.__code__.co_varnames):  # 有is_training这个参数

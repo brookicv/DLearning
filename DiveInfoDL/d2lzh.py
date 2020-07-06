@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import torch.nn as nn
 import matplotlib.pyplot as plt
 import time
 import sys
@@ -149,3 +150,12 @@ def corr2d(x, k):
             y[i, j] = (x[i:i + h, j:j + w] * k).sum()
 
     return y
+
+
+class GlobalAvgPool2d(nn.Module):
+    # 全局平均池化层可以将池化窗口设置为输入的宽和高实现
+    def __init__(self):
+        super(GlobalAvgPool2d, self).__init__()
+
+    def forward(self, x):
+        return nn.functional.avg_pool2d(x, kernel_size=x.size()[2:])

@@ -9,8 +9,6 @@ import random
 import zipfile
 
 # ImageAssistant
-
-
 def load_data_fashion_mnist(batch_size,resize=None):
 
     trans = []

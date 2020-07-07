@@ -5,6 +5,8 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import time
 import sys
+import random
+import zipfile
 
 # ImageAssistant
 
@@ -182,3 +184,64 @@ class Residual(nn.Module):
             x = self.conv3(x)
 
         return F.relu(y + x)
+################################################################
+## chapter 6 language model
+################################################################
+
+
+# 周杰伦歌词数据集
+def load_data_jay_lyrics():
+    with zipfile.ZipFile("../data/jaychou_lyrics.txt.zip")as zin:
+        with zin.open("jaychou_lyrics.txt") as f:
+            corpus_chars = f.read().decode("utf-8")
+
+
+    # 这个数据集有６万多个字符，为了打印方便，将换行符换成空格
+    corpus_chars = corpus_chars.replace("\n", " ").replace("\r", " ")
+    # corpus_chars = corpus_chars[0:10000]
+    idx_to_char = list(set(corpus_chars))
+    char_to_idx = dict([(char, i) for i, char in enumerate(idx_to_char)])
+    vocab_size = len(char_to_idx)
+    corpus_indices = [char_to_idx[char] for char in corpus_chars]
+
+    return corpus_indices,char_to_idx,idx_to_char,vocab_size
+
+
+def data_iter_random(corpus_indices,batch_size,num_steps,device=None):
+    # -1是因为输出的索引ｘ市相应的输入的索引ｙ+1
+    num_examples = (len(corpus_indices) - 1) // num_steps
+    epoch_size = num_examples // batch_size
+
+    examples_indices = list(range(num_examples))
+    random.shuffle(examples_indices)
+
+    def _data(pos):
+        return corpus_indices[pos:pos + num_steps]
+
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    for i in range(epoch_size):
+        i = i * batch_size
+        batch_indices = examples_indices[i: i + batch_size]
+        x = [_data(j * num_steps) for j in batch_indices]
+        y = [_data(j * num_steps + 1) for j in batch_indices]
+        yield torch.tensor(x, dtype=torch.float32, device=device), torch.tensor(y, dtype=torch.float32, device=device)
+
+def data_iter_consecutive(corpus_indices,batch_size,num_stpes,device=None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    corpus_indices = torch.tensor(corpus_indices,dtype=torch.float32,device=device)
+    data_len = len(corpus_indices)
+    batch_len = data_len // batch_size
+
+    indices = corpus_indices[0:batch_size * batch_len].view(batch_size,batch_len)
+
+    epoch_size = (batch_len - 1) // num_stpes
+
+    for i in range(epoch_size):
+        i = i * num_stpes
+        x = indices[:,i : i + num_stpes]
+        y = indices[:,i + 1 : i + num_stpes + 1]
+        yield x,y

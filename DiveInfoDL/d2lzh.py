@@ -198,7 +198,7 @@ def load_data_jay_lyrics():
 
     # 这个数据集有６万多个字符，为了打印方便，将换行符换成空格
     corpus_chars = corpus_chars.replace("\n", " ").replace("\r", " ")
-    # corpus_chars = corpus_chars[0:10000]
+    corpus_chars = corpus_chars[0:20000]
     idx_to_char = list(set(corpus_chars))
     char_to_idx = dict([(char, i) for i, char in enumerate(idx_to_char)])
     vocab_size = len(char_to_idx)
@@ -245,3 +245,95 @@ def data_iter_consecutive(corpus_indices,batch_size,num_stpes,device=None):
         x = indices[:,i : i + num_stpes]
         y = indices[:,i + 1 : i + num_stpes + 1]
         yield x,y
+
+
+def one_hot(x, n_class, dtype=torch.float32):
+    x = x.long()
+    res = torch.zeros(x.shape[0], n_class, dtype=dtype, device=x.device)
+    res.scatter_(1, x.view(-1, 1), 1)
+    return res
+
+
+def to_onehot(x, n_class):
+    # x shape:(batch,seq_len),
+    # output: seq_len elements of (batch,n_class)
+
+    return [one_hot(x[:, i], n_class) for i in range(x.shape[1])]
+
+
+def predict_rnn(prefix, num_chars, rnn, params, init_rnn_state, num_hiddens,
+                vocab_size, device, idx_to_char, char_to_idx):
+
+    state = init_rnn_state(1, num_hiddens, device)
+    output = [char_to_idx[prefix[0]]]
+    for t in range(num_chars + len(prefix) - 1):
+        # 将上一个时间步的输出作为下一个时间步的输入
+        x = to_onehot(torch.tensor([[output[-1]]], device=device), vocab_size)
+        (y, state) = rnn(x, state, params)  #计算和更新隐藏状态
+        #下一个时间步的输入是prefix里的字符或者当前的最佳预测字符
+        if t < len(prefix) - 1:
+            output.append(char_to_idx[prefix[t + 1]])
+        else:
+            output.append(int(y[0].argmax(dim=1).item()))
+
+    return "".join([idx_to_char[i] for i in output])
+
+def grad_clipping(params,theta,device):
+    norm = torch.tensor([0.0],device=device)
+    for param in params:
+        norm += (param.grad.data ** 2).sum()
+    norm = norm.sqrt().item()
+    if norm > theta:
+        for param in params:
+            param.grad.data *= (theta / norm)
+
+
+def train_and_predict_rnn(rnn, get_params, init_rnn_state, num_hiddens,
+                          vocab_size, device, corpus_indices, idx_to_char,
+                          char_to_idx, is_random_iter, num_epochs, num_steps,
+                          lr, clipping_theta, batch_size, pred_period,
+                          pred_len, prefixes):
+    if is_random_iter:
+        data_iter_fn = d2l.data_iter_random
+    else:
+        data_iter_fn = d2l.data_iter_consecutive
+
+    params = get_params()
+    loss = nn.CrossEntropyLoss()
+
+    for epoch in range(num_epochs):
+        if not is_random_iter:  # 使用相邻采样，在epoch开始时初始化隐藏层
+            state = init_rnn_state(batch_size, num_hiddens, device)
+        l_sum, n, start = 0.0, 0, time.time()
+        data_iter = data_iter_fn(corpus_indices, batch_size, num_steps, device)
+        for x, y in data_iter:
+            #　随机采样，在每个小批量更新钱初始化隐藏状态
+            if is_random_iter:
+                state = init_rnn_state(batch_size, num_hiddens, device)
+            else:
+                for s in state:
+                    s.detach_()
+            inputs = to_onehot(x, vocab_size)
+            (outputs, state) = rnn(inputs, state, params)
+            outputs = torch.cat(outputs, dim=0)
+            y = torch.transpose(x, 0, 1).contiguous().view(-1)
+            l = loss(outputs, y.long())
+
+            if params[0].grad is not None:
+                for param in params:
+                    param.grad.data.zero_()
+            l.backward()
+            grad_clipping(params, clipping_theta, device)
+            d2l.sgd(params, lr, 1)
+
+            l_sum += l.item() * y.shape[0]
+            n += y.shape[0]
+
+        if (epoch + 1) % pred_period == 0:
+            print("epoch %d,perplexity %f,time %.2f sec" %
+                  (epoch + 1, math.exp(l_sum / n), time.time() - start))
+
+            for prefix in prefixes:
+                print(" -",predict_rnn(prefix, pred_len, rnn, params, init_rnn_state,
+                                num_hiddens, vocab_size, device, idx_to_char,
+                                char_to_idx))

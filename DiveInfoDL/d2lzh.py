@@ -7,6 +7,7 @@ import time
 import sys
 import random
 import zipfile
+import numpy as np
 
 
 def linreg(X, w, b):
@@ -352,6 +353,14 @@ def train_and_predict_rnn(rnn, get_params, init_rnn_state, num_hiddens,
 ################################
 
 
+def get_data_ch7():
+    data = np.genfromtxt("../data/airfoil_self_noise.data", delimiter="\t")
+    data = (data - data.mean(axis=0)) / data.std(axis=0)
+    return torch.tensor(data[:1500, :-1],
+                        dtype=torch.float32), torch.tensor(data[:1500, -1],
+                                                           dtype=torch.float32)
+
+
 def train_2d(trainer):
     x1, x2, s1, s2 = -5, -2, 0, 0
     results = [(x1, x2)]
@@ -378,7 +387,7 @@ def train_ch7(optimizer_fn,
               labels,
               batch_size=10,
               num_epochs=2):
-    net, loss = d2l.linreg, d2l.squared_loss
+    net, loss = linreg, squared_loss
 
     w = torch.nn.Parameter(torch.tensor(np.random.normal(
         0, 0.01, size=(features.shape[1], 1)),

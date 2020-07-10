@@ -205,7 +205,8 @@ def rotate_batch(points: torch.Tensor, angels: torch.Tensor, centers: torch.Tens
 
 def rotate(image: Image.Image, points: torch.Tensor, angel: int) -> (Image.Image, torch.Tensor):
     center = torch.tensor(image.size, dtype=torch.float32) / 2
-    return tf.rotate(image, angel), rotate_point(points, angel, center)
+    points = points[0]
+    return tf.rotate(image, angel,fill=None), rotate_point(points, angel, center)
 
 
 def gen_distmap(image: torch.Tensor, spacing: torch.Tensor, *gt_coords: torch.Tensor, angel=0):

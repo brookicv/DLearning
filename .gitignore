@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 .vscode
 
+lumbar/predictions
+lumbar/models
+
 # C extensions
 *.so
 

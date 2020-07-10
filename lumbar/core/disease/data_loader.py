@@ -62,7 +62,7 @@ class DisDataSet(Dataset):
             transverse_images.append(transverse_image)
 
             dicom: DICOM = study[key[1]][key[2]]
-            pixel_coord = torch.cat([v_anno[:, :2], d_anno[:, :2]], dim=0)
+            pixel_coord = torch.cat([v_anno[:,:2], d_anno[:,:2]], dim=0)
             sagittal_image, pixel_coord, distmap = dicom.transform(
                 pixel_coord, self.sagittal_size, self.prob_rotate, self.max_angel, distmap=True)
             sagittal_images.append(sagittal_image)

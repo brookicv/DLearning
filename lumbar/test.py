@@ -1,4 +1,5 @@
 import json
+from lumbar.main import start_time
 import sys
 import time
 
@@ -30,6 +31,7 @@ result = []
 for study in testA_studies.values():
     result.append(dis_model.eval()(study, True))
 
+start_time = time.time()
 with open('predictions/baseline.json', 'w') as file:
     json.dump(result, file)
 print('task completed, {} seconds used'.format(time.time() - start_time))

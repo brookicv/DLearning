@@ -52,7 +52,7 @@ class Darknet(nn.Module):
                 num_classes = int(module["classes"])
 
                 x = x.data
-                y = predict_transform(x, inp_dim, anchors, num_classes, device)
+                x = predict_transform(x, inp_dim, anchors, num_classes, device)
                 
                 if not write:
                     detection = x # 有三个detection的输出，第一个直接赋值

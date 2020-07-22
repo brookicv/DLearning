@@ -13,10 +13,10 @@ class Darknet(nn.Module):
         self.net_info, self.module_list = create_modules(self.blocks)
         
     
-    def forward(self, x, device):
+    def forward(self, x):
         modules = self.blocks[1:] 
         outputs = {}
-
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         write = 0
         # block和module_list的module是一一对应的
         #　通过block判断其类型，然后调用相应的方法

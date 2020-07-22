@@ -6,6 +6,8 @@ __pycache__/
 
 lumbar/predictions
 lumbar/models
+imgs
+imgs2
 
 # C extensions
 *.so

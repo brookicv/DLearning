@@ -308,7 +308,7 @@ def write_results(prediction, confidence, num_classes, nms_conf=0.4):
     batch_size = prediction.shape[0]
 
     write = False
-
+    output = None
     for ind in range(batch_size):
         image_pred = prediction[ind]
 
@@ -355,6 +355,9 @@ def write_results(prediction, confidence, num_classes, nms_conf=0.4):
 
             batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)
             seq = batch_ind, image_pred_class
+            
+            out = torch.cat(seq, 1)
+            
             if not write:
                 output = torch.cat(seq, 1)
                 write = True

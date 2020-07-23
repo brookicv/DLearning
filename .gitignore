@@ -8,6 +8,8 @@ lumbar/predictions
 lumbar/models
 imgs
 imgs2
+models/
+example
 
 # C extensions
 *.so

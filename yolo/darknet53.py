@@ -160,6 +160,7 @@ class Darknet53(nn.Module):
 
         return detection_13, detection_26, detection_52
 
+
 if __name__ == "__main__":
 
     anchors = [10, 13, 16, 30, 33, 23, 30, 61, 62, 45, 59, 119, 116, 90, 156, 198, 373, 326]

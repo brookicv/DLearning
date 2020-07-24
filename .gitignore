@@ -9,7 +9,7 @@ lumbar/models
 imgs
 imgs2
 models/
-example
+example/build
 
 # C extensions
 *.so

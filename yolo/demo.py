@@ -22,13 +22,14 @@ trans = transformers.Compose([
     normalize
 ])
 
-for imgPath in glob.glob("imgs/*.jpg"):
+for imgPath in glob.glob("example/build/imgs/*.jpg"):
 
     img_ori = cv2.imread(imgPath)
     img = prep_image(img_ori,(608, 608))
 
     img = img.to(device)
     pred = model(img)
+    print(pred[0][0][0:5])
 
     pred = write_results(pred, 0.5, 80)
     if pred is None:

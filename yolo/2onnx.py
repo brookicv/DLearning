@@ -12,12 +12,10 @@ model = model.to(device)
 
 dummy_input = torch.randn(1, 3, 608, 608, device="cuda")
 
-preds,props = model(dummy_input)
-print(preds[:,:,4])
+# preds = model(dummy_input)
 
-"""
 input_names = ["input1"]
-output_names = ["bboxes","cls_prob"]
+output_names = ["bboxes","classes"]
 
 torch.onnx.export(
     model,
@@ -31,6 +29,5 @@ import onnx
 model = onnx.load("models/yolov3_608.onnx")
 onnx.checker.check_model(model)
 print(onnx.helper.printable_graph(model.graph))
-"""
 
 

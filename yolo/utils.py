@@ -266,7 +266,7 @@ def predict_transform(prediction, inp_dim, anchors, num_classes, device):
     return prediction
 
 def unique(tensor):
-    tensor_np = tensor.cpu().numpy()
+    tensor_np = tensor.detach().cpu().numpy()
     unique_np = np.unique(tensor_np)
     unique_tensor = torch.from_numpy(unique_np)
 

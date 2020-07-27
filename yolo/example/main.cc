@@ -86,32 +86,35 @@ int main(int argc, char **argv)
 
     auto letterbox_img = letterbox_resize(cv_img, 608, 608);
 
-    ncnn::Mat ncnn_img = ncnn::Mat::from_pixels(letterbox_img.data, ncnn::Mat::PIXEL_BGR2RGB, letterbox_img.cols, letterbox_img.rows);
-    const float mean_vals[3] = {127.5, 127.5, 127.5};
-    const float norm_vals[3] = {0.0078125, 0.0078125, 0.0078125};
+    ncnn::Mat in = ncnn::Mat::from_pixels(letterbox_img.data, ncnn::Mat::PIXEL_BGR2RGB, letterbox_img.cols, letterbox_img.rows);
+    //const float mean_vals[3] = {127.5, 127.5, 127.5};
+    //const float norm_vals[3] = {0.0078125, 0.0078125, 0.0078125};
+    const float mean_vals[3] = {0.485, 0.456, 0.406};
+    const float norm_vals[3] = {0.229, 0.224, 0.225};
 
-    ncnn_img.substract_mean_normalize(mean_vals, norm_vals);
+    in.substract_mean_normalize(mean_vals, norm_vals);
 
     double t1 = (double)getTickCount();
     ncnn::Extractor ex = model.create_extractor();
-    ncnn::Mat in;
-    resize_bilinear(ncnn_img, in, 608, 608);
+
     ex.set_num_threads(16);
     ex.set_light_mode(true);
     ex.input("input1", in);
+
     ncnn::Mat out;
     ncnn::Mat out2;
-
     ex.extract("bboxes", out);
-    ex.extract("cls_prob", out2);
+    ex.extract("classes", out2);
 
     double t = double(getTickCount() - t1) / double(getTickFrequency());
     cout << t << endl;
+
 
     auto rows = out.h;
     vector<Point> maxLocs;
     for (int i = 0; i < rows; i++)
     {
+        float *row = out2.row(i);
         cv::Mat prob(1, out2.w, CV_32FC1, out2.row(i));
         Point maxLoc;
         cv::minMaxLoc(prob,nullptr,nullptr,nullptr,&maxLoc);
@@ -124,15 +127,18 @@ int main(int argc, char **argv)
     for (int i = 0; i < rows; i++)
     {
         float *row = out.row(i);
+       
         if (row[4] > confidence_threshold)
         {
+            if (row[2] <= 0 || row[3] <= 0)
+                continue;
             float x1 = row[0] - row[2] / 2;
             float y1 = row[1] - row[3] / 2;
             float x2 = row[0] + row[2] / 2;
             float y2 = row[1] + row[3] / 2;
 
-            Rect2f box(Point2f(x1, y1), Point2f(x2,y2));
-            BBox bbox; 
+            Rect2f box(Point2f(x1, y1), Point2f(x2, y2));
+            BBox bbox;
             bbox.box = box;
             bbox.confidence = row[4];
             bbox.cls_index = maxLocs[i].x;
@@ -143,6 +149,10 @@ int main(int argc, char **argv)
     }
 
     sort(bboxes.begin(), bboxes.end(),[](BBox &a, BBox &b){ return a.confidence > b.confidence; });
+
+    cout << bboxes[0].confidence << endl;
+    cout << bboxes[2].box.x << " " << bboxes[2].box.y << " " << bboxes[2].box.width << " " << bboxes[2].box.height << endl;
+    return 0;
 
     vector<int> indices;
     int box_size = bboxes.size();
@@ -165,6 +175,20 @@ int main(int argc, char **argv)
     }
 
     cout << indices.size() <<endl;
+
+    for(int i = 0; i < indices.size();i ++)
+    {
+        auto bbox = bboxes[indices[i]];
+        cout << bbox.confidence << endl;
+
+        cout << bbox.box.x << " " << bbox.box.y << endl;
+        cout << bbox.box.width << " " << bbox.box.height << endl;
+
+        if(bbox.box.width > 608 || bbox.box.height > 608)
+            cout << indices[i] << endl;
+    }
+
+    return 0;
 
     /*
     for (int i = 0; i < out.h; i++)

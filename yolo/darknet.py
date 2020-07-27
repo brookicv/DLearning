@@ -13,6 +13,33 @@ class Darknet(nn.Module):
         self.net_info, self.module_list = create_modules(self.blocks)
         
     
+    def create_grid(self, grid_size,i):
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        anchors = self.module_list[i][0].anchors
+        inp_dim = int(self.net_info["height"])
+        stride = inp_dim // grid_size  # 下采样倍数
+
+        num_anchors = len(anchors)  # 特征图上每个点的anchor box
+         # 创建grid cell的中心坐标
+        grid = np.arange(grid_size)
+        a, b = np.meshgrid(grid, grid)
+        
+        x_offset = torch.FloatTensor(a).view(-1, 1)
+        y_offset = torch.FloatTensor(b).view(-1, 1)
+
+        x_offset = x_offset.to(device)
+        y_offset = y_offset.to(device)
+
+        self.x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, num_anchors).view(-1, 2).unsqueeze(0)
+
+         # 预定义的anchor box进行缩放。如果是以原图的尺寸为基准设置的anchor box 
+        # 就需要将其缩放到最后输出的特征图的尺寸上
+        anchors = [(a[0] / stride, a[1] / stride) for a in anchors]
+
+        anchors = torch.FloatTensor(anchors).to(device)  
+        self.anchors = anchors.repeat(grid_size * grid_size, 1).unsqueeze(0)
+
     def forward(self, x):
         modules = self.blocks[1:] 
         outputs = {}
@@ -58,46 +85,26 @@ class Darknet(nn.Module):
                 grid_size = inp_dim // stride  # 最后特征图的大小
                 bbox_attrs = 5 + num_classes
                 num_anchors = len(anchors)  # 特征图上每个点的anchor box
+
+                self.create_grid(grid_size,i)
                 
                 prediction = prediction.view(batch_size, bbox_attrs * num_anchors, grid_size * grid_size)
                 prediction = prediction.transpose(1, 2).contiguous()
                 prediction = prediction.view(batch_size, grid_size * grid_size * num_anchors, bbox_attrs)
                 
-                # 预定义的anchor box进行缩放。如果是以原图的尺寸为基准设置的anchor box 
-                # 就需要将其缩放到最后输出的特征图的尺寸上
-                anchors = [(a[0] / stride, a[1] / stride) for a in anchors]
                 
                 # 对(x,y)偏移量以及置信度
-                prediction[:,:, 0] = torch.sigmoid(prediction[:,:, 0])
-                prediction[:,:, 1] = torch.sigmoid(prediction[:,:, 1])
-                prediction[:,:, 4] = torch.sigmoid(prediction[:,:, 4])
-
-                # 创建grid cell的中心坐标
-                grid = np.arange(grid_size)
-                a, b = np.meshgrid(grid, grid)
-                
-                x_offset = torch.FloatTensor(a).view(-1, 1)
-                y_offset = torch.FloatTensor(b).view(-1, 1)
-
-                x_offset = x_offset.to(device)
-                y_offset = y_offset.to(device)
-
-                x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, num_anchors).view(-1, 2).unsqueeze(0)
-                
-                prediction[:,:,:2] += x_y_offset
-
-                anchors = torch.FloatTensor(anchors).to(device)
-                
-                anchors = anchors.repeat(grid_size * grid_size, 1).unsqueeze(0)
-                
-                prediction[:,:, 2:4] = torch.exp(prediction[:,:, 2:4]) * anchors
-                
-                prediction[:,:, 5:5 + num_classes] = torch.sigmoid((prediction[:,:, 5:5 + num_classes]))
-                
                 # 将bbox的尺寸放大到原图上
-                prediction[:,:,:4] *= stride
+                xy = (torch.sigmoid(prediction[:,:,0:2]) + self.x_y_offset.float()) 
+                wh = (torch.exp(prediction[:,:, 2:4]) * self.anchors.float())
 
-                preds.append(prediction)
+                xy = xy * float(stride)
+                wh = wh * float(stride)
+                confidence = torch.sigmoid(prediction[:,:,4:5])
+                p_cls = torch.sigmoid((prediction[:,:, 5:5 + num_classes]))
+                
+                
+                preds.append(torch.cat((xy,wh,confidence,p_cls),dim=2))
 
                 """
                 x = x.data
@@ -118,6 +125,7 @@ class Darknet(nn.Module):
         # max_cls_index = max_cls_index.float().unsqueeze(2)
         # preds = torch.cat((preds[:,:,:5],max_cls_index,max_cls_prop),dim=2) # x1, y1,x2,y2,confidence,cls_index,cls_prop
         return preds[:,:,:5],preds[:,:,5:5+ num_classes]
+        # return preds
 
     def load_weights(self, weightfile):
         

@@ -11,7 +11,10 @@ class Darknet(nn.Module):
         super(Darknet, self).__init__()
         self.blocks = parse_cfg(cfgfile)
         self.net_info, self.module_list = create_modules(self.blocks)
-        
+
+        self.anchors_19 = torch.FloatTensor([[3.6250, 2.8125], [4.8750, 6.1875],[11.6562, 10.1875]])
+        self.anchors_38 = torch.FloatTensor([[1.8750, 3.8125], [3.8750, 2.8125],[3.6875, 7.4375]])
+        self.anchors_76 = torch.FloatTensor([[1.2500, 1.6250],[2.0000, 3.7500],[4.1250, 2.8750]])
     
     def create_grid(self, grid_size,i):
 
@@ -22,11 +25,11 @@ class Darknet(nn.Module):
 
         num_anchors = len(anchors)  # 特征图上每个点的anchor box
          # 创建grid cell的中心坐标
-        grid = np.arange(grid_size)
-        a, b = np.meshgrid(grid, grid)
-        
-        x_offset = torch.FloatTensor(a).view(-1, 1)
-        y_offset = torch.FloatTensor(b).view(-1, 1)
+        grid = torch.arange(grid_size)
+        a, b = torch.meshgrid(grid, grid) # a是y轴的坐标，b是x轴的坐标
+
+        x_offset = b.float().view(-1, 1)
+        y_offset = a.float().view(-1, 1)
 
         x_offset = x_offset.to(device)
         y_offset = y_offset.to(device)
@@ -37,8 +40,15 @@ class Darknet(nn.Module):
         # 就需要将其缩放到最后输出的特征图的尺寸上
         anchors = [(a[0] / stride, a[1] / stride) for a in anchors]
 
-        anchors = torch.FloatTensor(anchors).to(device)  
-        self.anchors = anchors.repeat(grid_size * grid_size, 1).unsqueeze(0)
+        anchors = torch.FloatTensor(anchors).to(device)
+        if i == 82:
+            self.anchors = self.anchors_19.repeat(grid_size * grid_size, 1).unsqueeze(0).to(device)
+        elif i == 94:
+            self.anchors = self.anchors_38.repeat(grid_size * grid_size, 1).unsqueeze(0).to(device)
+        elif i == 106:
+            self.anchors = self.anchors_76.repeat(grid_size * grid_size, 1).unsqueeze(0).to(device)
+
+        self.grid_size = grid_size
 
     def forward(self, x):
         modules = self.blocks[1:] 
@@ -88,9 +98,9 @@ class Darknet(nn.Module):
 
                 self.create_grid(grid_size,i)
                 
-                prediction = prediction.view(batch_size, bbox_attrs * num_anchors, grid_size * grid_size)
+                prediction = prediction.view(batch_size, bbox_attrs * num_anchors, self.grid_size * self.grid_size)
                 prediction = prediction.transpose(1, 2).contiguous()
-                prediction = prediction.view(batch_size, grid_size * grid_size * num_anchors, bbox_attrs)
+                prediction = prediction.view(batch_size, self.grid_size * self.grid_size * 3, 85)
                 
                 
                 # 对(x,y)偏移量以及置信度
@@ -98,13 +108,14 @@ class Darknet(nn.Module):
                 xy = (torch.sigmoid(prediction[:,:,0:2]) + self.x_y_offset.float()) 
                 wh = (torch.exp(prediction[:,:, 2:4]) * self.anchors.float())
 
-                xy = xy * float(stride)
-                wh = wh * float(stride)
+                # xy = xy * float(stride)
+                # wh = wh * float(stride)
+
                 confidence = torch.sigmoid(prediction[:,:,4:5])
-                p_cls = torch.sigmoid((prediction[:,:, 5:5 + num_classes]))
-                
+                p_cls = torch.sigmoid((prediction[:,:, 5:85]))
                 
                 preds.append(torch.cat((xy,wh,confidence,p_cls),dim=2))
+                
 
                 """
                 x = x.data
@@ -120,10 +131,6 @@ class Darknet(nn.Module):
             outputs[i] = x
 
         preds = torch.cat(preds, 1)
-        # max_cls_prop, max_cls_index = torch.max(preds[:,:, 5:5 + num_classes], dim = 2)
-        # max_cls_prop = max_cls_prop.float().unsqueeze(2)
-        # max_cls_index = max_cls_index.float().unsqueeze(2)
-        # preds = torch.cat((preds[:,:,:5],max_cls_index,max_cls_prop),dim=2) # x1, y1,x2,y2,confidence,cls_index,cls_prop
         return preds[:,:,:5],preds[:,:,5:5+ num_classes]
         # return preds
 

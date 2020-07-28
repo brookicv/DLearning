@@ -23,6 +23,7 @@ struct BBox {
     float confidence; // 置信度
     int index; // 边框的index
     int cls_index; // 所属类别的index
+    float cls_prob; //类别概率
 };
 
 float get_iou(Rect rect1,Rect rect2)
@@ -109,8 +110,19 @@ int main(int argc, char **argv)
     double t = double(getTickCount() - t1) / double(getTickFrequency());
     cout << t << endl;
 
+    int strides[3] = {32, 16, 8};
+    for (int i = 0; i < out.h; i++)
+    {
+        float *row = out.row(i);
+        if (i < 1083){
+            row[0] *= 32;
+            row[1] *= 32;
+            row[2] *= 32;
+            row[3] *= 32;
+        }
+    }
 
-    auto rows = out.h;
+        auto rows = out.h;
     vector<Point> maxLocs;
     for (int i = 0; i < rows; i++)
     {
@@ -127,7 +139,10 @@ int main(int argc, char **argv)
     for (int i = 0; i < rows; i++)
     {
         float *row = out.row(i);
-       
+        float *row2 = out2.row(i);
+        cout << row[0] << " " << row[1] << " " << row[2]
+             << " " << row[3] << " " << row[4] << " " << endl;
+
         if (row[4] > confidence_threshold)
         {
             if (row[2] <= 0 || row[3] <= 0)
@@ -143,16 +158,13 @@ int main(int argc, char **argv)
             bbox.confidence = row[4];
             bbox.cls_index = maxLocs[i].x;
             bbox.index = i;
+            bbox.cls_prob = row2[maxLocs[i].x];
 
             bboxes.push_back(bbox);
         }
     }
 
     sort(bboxes.begin(), bboxes.end(),[](BBox &a, BBox &b){ return a.confidence > b.confidence; });
-
-    cout << bboxes[0].confidence << endl;
-    cout << bboxes[2].box.x << " " << bboxes[2].box.y << " " << bboxes[2].box.width << " " << bboxes[2].box.height << endl;
-    return 0;
 
     vector<int> indices;
     int box_size = bboxes.size();
@@ -179,13 +191,20 @@ int main(int argc, char **argv)
     for(int i = 0; i < indices.size();i ++)
     {
         auto bbox = bboxes[indices[i]];
-        cout << bbox.confidence << endl;
 
-        cout << bbox.box.x << " " << bbox.box.y << endl;
-        cout << bbox.box.width << " " << bbox.box.height << endl;
 
-        if(bbox.box.width > 608 || bbox.box.height > 608)
-            cout << indices[i] << endl;
+        if(bbox.confidence * bbox.cls_prob > 0.5)
+        {
+            cout << bbox.confidence << endl;
+            cout << bbox.cls_prob << endl;
+            cout << bbox.box.x << " " << bbox.box.y << endl;
+            cout << bbox.box.width << " " << bbox.box.height << endl;
+
+            if (bbox.box.width > 608 || bbox.box.height > 608)
+                cout << indices[i] << endl;
+        }
+
+
     }
 
     return 0;

@@ -71,6 +71,21 @@ Mat letterbox_resize(const Mat &src, int expected_width, int expected_height)
     return dst;
 }
 
+void output_mat(const ncnn::Mat &m,int channel)
+{
+    const float *ptr = m.channel(channel);
+
+    for (int y = 0; y < m.h; y++)
+    {
+        for(int x = 0; x < m.w; x++)
+        {
+            cout << ptr[x] << ",";
+        }
+        ptr += m.w;
+        cout << endl;
+    }
+}
+
 int main(int argc, char **argv)
 {
     ncnn::Net model;
@@ -88,18 +103,20 @@ int main(int argc, char **argv)
     auto letterbox_img = letterbox_resize(cv_img, 608, 608);
 
     ncnn::Mat in = ncnn::Mat::from_pixels(letterbox_img.data, ncnn::Mat::PIXEL_BGR2RGB, letterbox_img.cols, letterbox_img.rows);
-    //const float mean_vals[3] = {127.5, 127.5, 127.5};
-    //const float norm_vals[3] = {0.0078125, 0.0078125, 0.0078125};
-    const float mean_vals[3] = {0.485, 0.456, 0.406};
-    const float norm_vals[3] = {0.229, 0.224, 0.225};
+    const float mean_vals[3] = {127.5, 127.5, 127.5};
+    const float norm_vals[3] = {0.0078125, 0.0078125, 0.0078125};
+    //const float mean_vals[3] = {0.485, 0.456, 0.406};
+    //const float norm_vals[3] = {0.229, 0.224, 0.225};
 
     in.substract_mean_normalize(mean_vals, norm_vals);
+
+    
 
     double t1 = (double)getTickCount();
     ncnn::Extractor ex = model.create_extractor();
 
     ex.set_num_threads(16);
-    ex.set_light_mode(true);
+
     ex.input("input1", in);
 
     ncnn::Mat out;
@@ -110,19 +127,7 @@ int main(int argc, char **argv)
     double t = double(getTickCount() - t1) / double(getTickFrequency());
     cout << t << endl;
 
-    int strides[3] = {32, 16, 8};
-    for (int i = 0; i < out.h; i++)
-    {
-        float *row = out.row(i);
-        if (i < 1083){
-            row[0] *= 32;
-            row[1] *= 32;
-            row[2] *= 32;
-            row[3] *= 32;
-        }
-    }
-
-        auto rows = out.h;
+    auto rows = out.h;
     vector<Point> maxLocs;
     for (int i = 0; i < rows; i++)
     {
@@ -140,8 +145,6 @@ int main(int argc, char **argv)
     {
         float *row = out.row(i);
         float *row2 = out2.row(i);
-        cout << row[0] << " " << row[1] << " " << row[2]
-             << " " << row[3] << " " << row[4] << " " << endl;
 
         if (row[4] > confidence_threshold)
         {
@@ -161,6 +164,13 @@ int main(int argc, char **argv)
             bbox.cls_prob = row2[maxLocs[i].x];
 
             bboxes.push_back(bbox);
+
+            if (maxLocs[i].x == 0)
+            {
+                Rect rect(bbox.box);
+                rectangle(letterbox_img, rect, (0, 255, 255), 1);
+            }
+
         }
     }
 
@@ -193,19 +203,21 @@ int main(int argc, char **argv)
         auto bbox = bboxes[indices[i]];
 
 
-        if(bbox.confidence * bbox.cls_prob > 0.5)
+        if(bbox.cls_prob > 0.5)
         {
+            if (bbox.box.width > 608 || bbox.box.height > 608 || bbox.box.x < 0 || bbox.box.y < 0)
+                continue;
             cout << bbox.confidence << endl;
             cout << bbox.cls_prob << endl;
             cout << bbox.box.x << " " << bbox.box.y << endl;
             cout << bbox.box.width << " " << bbox.box.height << endl;
 
-            if (bbox.box.width > 608 || bbox.box.height > 608)
-                cout << indices[i] << endl;
+            //Rect rect(bbox.box);
+            //rectangle(letterbox_img, rect, (0,255,255),1);
         }
-
-
     }
+    imshow("person", letterbox_img);
+    waitKey();
 
     return 0;
 

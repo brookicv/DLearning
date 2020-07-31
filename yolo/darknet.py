@@ -41,6 +41,7 @@ class Darknet(nn.Module):
         anchors = [(a[0] / stride, a[1] / stride) for a in anchors]
 
         anchors = torch.FloatTensor(anchors).to(device)
+
         if i == 82:
             self.anchors = self.anchors_19.repeat(grid_size * grid_size, 1).unsqueeze(0).to(device)
         elif i == 94:
@@ -100,16 +101,16 @@ class Darknet(nn.Module):
                 
                 prediction = prediction.view(batch_size, bbox_attrs * num_anchors, self.grid_size * self.grid_size)
                 prediction = prediction.transpose(1, 2).contiguous()
-                prediction = prediction.view(batch_size, self.grid_size * self.grid_size * 3, 85)
-                
+                prediction = prediction.view(batch_size, self.grid_size * self.grid_size * 3, 85)               
+
                 
                 # 对(x,y)偏移量以及置信度
                 # 将bbox的尺寸放大到原图上
                 xy = (torch.sigmoid(prediction[:,:,0:2]) + self.x_y_offset.float()) 
-                wh = (torch.exp(prediction[:,:, 2:4]) * self.anchors.float())
+                wh = (torch.exp(prediction[:,:, 2:4]) * self.anchors.float() ) # 
 
-                # xy = xy * float(stride)
-                # wh = wh * float(stride)
+                xy = xy * float(stride)
+                wh = wh * float(stride)
 
                 confidence = torch.sigmoid(prediction[:,:,4:5])
                 p_cls = torch.sigmoid((prediction[:,:, 5:85]))

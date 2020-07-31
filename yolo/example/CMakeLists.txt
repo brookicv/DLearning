@@ -17,8 +17,6 @@ set(CMAKE_CXX_COMPILE "/usr/local/bin/g++")
 
 FIND_PACKAGE( OpenMP REQUIRED)
 
-find_package(ncnn REQUIRED)
-
 
 if(OPENMP_FOUND)
     message("OPENMP FOUND")
@@ -29,15 +27,16 @@ endif()
 
 # include directory
 include_directories(/usr/include)
+include_directories(/home/liqiang/GIT/ncnn/build/install/include)
 include_directories(/usr/local/include)
 include_directories(/usr/opencv3.4.4/include)
 include_directories(/usr/local/curl/include)
 include_directories(${OpenCV_INCLUDE_DIRS})
-include_directories(/home/liqiang/GIT/ncnn/build/install/include)
 
 # lib directory
 link_directories(/usr/opencv3.4.4/lib)
 link_directories(/usr/lib)
+link_directories(/home/liqiang/GIT/ncnn/build/install/lib)
 link_directories(/usr/local/curl/lib)
 link_directories(/usr/local/lib)
 
@@ -45,8 +44,10 @@ link_directories(/usr/local/lib)
 aux_source_directory(. DIR_SRCS)
 
 add_executable(main main.cc)
+add_executable(yolov4 yolov4.cc)
 
 target_link_libraries(main ${OpenCV_LIBS}  -lpthread ncnn)
+target_link_libraries(yolov4 ${OpenCV_LIBS}  -lpthread ncnn)
 
 message(STATUS "cmake_build_type = " ${CMAKE_BUILD_TYPE})
 message(STATUS "cmake_cxx_flags_debug=" ${CMAKE_CXX_FLAGS_DEBUG})

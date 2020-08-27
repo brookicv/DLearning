@@ -54,12 +54,12 @@ static int detect_yolov4(const cv::Mat &bgr, std::vector<Object> &objects)
     // the ncnn model https://drive.google.com/drive/folders/1YzILvh0SKQPS_lrb33dmGNq7aVTKPWS0?usp=sharing
     // the ncnn model https://github.com/nihui/ncnn-assets/tree/master/models
 #if YOLOV4_TINY
-    yolov4.load_param("../models/yolov4-tiny-opt.param");
-    yolov4.load_model("../models/yolov4-tiny-opt.bin");
+    yolov4.load_param("../../models/yolov4-tiny-opt.param");
+    yolov4.load_model("../../models/yolov4-tiny-opt.bin");
     const int target_size = 416;
 #else
-    yolov4.load_param("../models/yolov4-opt.param");
-    yolov4.load_model("../models/yolov4-opt.bin");
+    yolov4.load_param("../../models/yolov4-opt.param");
+    yolov4.load_model("../../models/yolov4-opt.bin");
     const int target_size = 608;
 #endif
     int img_w = bgr.cols;
@@ -71,13 +71,16 @@ static int detect_yolov4(const cv::Mat &bgr, std::vector<Object> &objects)
     const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
     in.substract_mean_normalize(mean_vals, norm_vals);
 
+    auto t1 = getTickCount();
     ncnn::Extractor ex = yolov4.create_extractor();
-    ex.set_num_threads(4);
+    ex.set_num_threads(8);
 
     ex.input("data", in);
 
     ncnn::Mat out;
     ex.extract("output", out);
+    auto t2 = static_cast<float>(getTickCount() - t1) / static_cast<float>(getTickFrequency());
+    cout << "consumed: " << t2 << endl;
 
     printf("%d %d %d\n", out.w, out.h, out.c);
     objects.clear();
@@ -174,16 +177,16 @@ static void draw_objects(const cv::Mat &bgr, const std::vector<Object> &objects)
     
 }
 
-
-
 int main(int argc, char **argv)
 {
     vector<cv::String> fileNames;
-    cv::String folder = "imgs/*.jpg";
+    cv::String folder = "../../imgs/*.jpg";
     cv::glob(folder,fileNames);
 
-    for(int i = 0; i < fileNames.size();i ++)
-    {
+    float times = 0.f;
+    for (int i = 0; i < fileNames.size(); i++)
+    {   
+        cout << fileNames[i] << endl;
         cv::Mat m = cv::imread(fileNames[i], 1);
         auto letter_img = letterbox_resize(m,416,416);
         std::vector<Object> objects;

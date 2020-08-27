@@ -43,13 +43,13 @@ link_directories(/usr/local/lib)
 
 aux_source_directory(. DIR_SRCS)
 
-add_executable(main main.cc)
+add_executable(main main.cc Yolov4TinyDetector.h Yolov4TinyDetector.cc)
 add_executable(yolov4 yolov4.cc)
 add_executable(yolov3-mnn yolov3-mnn.cc)
 
 target_link_libraries(main ${OpenCV_LIBS}  -lpthread ncnn)
 target_link_libraries(yolov4 ${OpenCV_LIBS}  -lpthread ncnn)
-target_link_libraries(yolov3-mnn ${OpenCV_LIBS}  -lpthread mnn)
+target_link_libraries(yolov3-mnn ${OpenCV_LIBS}  -lpthread libMNN.so)
 
 message(STATUS "cmake_build_type = " ${CMAKE_BUILD_TYPE})
 message(STATUS "cmake_cxx_flags_debug=" ${CMAKE_CXX_FLAGS_DEBUG})

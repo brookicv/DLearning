@@ -10,6 +10,8 @@
 #include <opencv2/imgproc.hpp>
 
 #include "Yolov4TinyDetector.h"
+#include "AgeGenderRecongnizer.h"
+
 using namespace std;
 using namespace cv;
 
@@ -70,13 +72,38 @@ int main(int argc, char* argv[])
     auto img = imread(path);
 
     auto detector = YoloTinyDetector("../../models/yolov4-tiny-opt.param", "../../models/yolov4-tiny-opt.bin");
+    AgeGenderRecongnizer ageGenderRecongnizer("../../models/ped_attr.mnn");
 
     vector<Yolov4Object> objects;
     detector.detect(img, objects);
 
-    for(auto object : objects)
+    stringstream ss;
+    for (auto object : objects)
     {
+        auto person = img(object.rect);
+        int age, gender;
+        if(person.isContinuous())
+        {
+            ageGenderRecongnizer.recongnize(img,age,gender);
+        }
+        else
+        {
+            uchar *colorImgData = new uchar[person.total() * 3];
+            // 新建同等大小的Mat,通道为8UC3
+            Mat MatTemp(img.size(), CV_8UC3, colorImgData);
+            cv::cvtColor(person, MatTemp, CV_BGR2RGB);
+
+            ageGenderRecongnizer.recongnize(MatTemp, age, gender);
+            delete [] colorImgData;
+        }
         rectangle(img, object.rect, Scalar(0, 255, 0));
+
+        ss.str("");
+        ss << "age:" << age;
+        putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
+        ss.str("");
+        ss << "gender:" << gender;
+        putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 40), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 255));
     }
 
     cout << "count: " << objects.size() << endl;

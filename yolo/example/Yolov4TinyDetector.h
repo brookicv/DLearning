@@ -25,7 +25,6 @@ private:
 
 private:
     ncnn::Net mYolov4Net;
-    std::shared_ptr<ncnn::Extractor> mExtractor;
     int mTargetSize;
     int mNumThreads;
 };

@@ -35,6 +35,7 @@ private:
     {
         return (1 / (1 + exp(-x)));
     }
+    cv::Mat letterbox_resize(const cv::Mat &src);
 
 private:
     int mTargetWidth;

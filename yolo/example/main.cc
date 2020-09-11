@@ -12,6 +12,8 @@
 #include "Yolov4TinyDetector.h"
 #include "AgeGenderRecongnizer.h"
 
+#define CAMERA 0
+
 using namespace std;
 using namespace cv;
 
@@ -68,47 +70,109 @@ Mat letterbox_resize(const Mat &src, int expected_width, int expected_height)
 
 int main(int argc, char* argv[])
 {   
-    string path = string(argv[1]);
-    auto img = imread(path);
+    //string path = string(argv[1]);
+    // auto img = imread(path);
 
     auto detector = YoloTinyDetector("../../models/yolov4-tiny-opt.param", "../../models/yolov4-tiny-opt.bin");
     AgeGenderRecongnizer ageGenderRecongnizer("../../models/ped_attr.mnn");
 
-    vector<Yolov4Object> objects;
-    detector.detect(img, objects);
-
-    stringstream ss;
-    for (auto object : objects)
-    {
-        auto person = img(object.rect);
-        int age, gender;
-        if(person.isContinuous())
-        {
-            ageGenderRecongnizer.recongnize(img,age,gender);
-        }
-        else
-        {
-            uchar *colorImgData = new uchar[person.total() * 3];
-            // 新建同等大小的Mat,通道为8UC3
-            Mat MatTemp(img.size(), CV_8UC3, colorImgData);
-            cv::cvtColor(person, MatTemp, CV_BGR2RGB);
-
-            ageGenderRecongnizer.recongnize(MatTemp, age, gender);
-            delete [] colorImgData;
-        }
-        rectangle(img, object.rect, Scalar(0, 255, 0));
-
-        ss.str("");
-        ss << "age:" << age;
-        putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
-        ss.str("");
-        ss << "gender:" << gender;
-        putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 40), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 255));
+    #if CAMERA
+    VideoCapture capture(0);
+    if(!capture.isOpened()){
+        cout << "Could not open camera" << endl;
+        return -1;
     }
+    Mat img;
+    while (capture.read(img))
+    {
+        vector<Yolov4Object> objects;
+        detector.detect(img , objects);
 
-    cout << "count: " << objects.size() << endl;
-    imshow("person", img);
-    waitKey();
+        stringstream ss;
+        for (auto object : objects)
+        {
+            int x1 = std::max(object.rect.x, float(0));
+            int y1 = std::max(object.rect.y, float(0));
+            int x2 = std::min(object.rect.x + object.rect.width, float(img.cols));
+            int y2 = std::min(object.rect.y + object.rect.height, float(img.rows));
+            Rect r(cv::Point(x1, y1), cv::Point(x2, y2));
+            auto person = img(r);
+            int age, gender;
+            if (person.isContinuous())
+            {
+                ageGenderRecongnizer.recongnize(person, age, gender);
+            }
+            else
+            {
+                uchar *colorImgData = new uchar[person.total() * 3];
+                // 新建同等大小的Mat,通道为8UC3
+                Mat MatTemp(person.size(), CV_8UC3, colorImgData);
+                cv::cvtColor(person, MatTemp, CV_BGR2RGB);
+
+                ageGenderRecongnizer.recongnize(MatTemp, age, gender);
+                delete[] colorImgData;
+            }
+            rectangle(img, object.rect, Scalar(0, 255, 0));
+
+            ss.str("");
+            ss << "age:" << age;
+            putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
+            ss.str("");
+            ss << "gender:" << gender;
+            putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 40), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 255));
+        }
+
+        cout << "count: " << objects.size() << endl;
+        imshow("person", img);
+        if(waitKey(25) == 27)
+            break;
+    }
+    #else
+
+    vector<cv::String> fileNames;
+    cv::glob("../../imgs", fileNames);
+    for(size_t i = 0; i < fileNames.size(); i ++)
+    {
+        Mat img = cv::imread(fileNames[i]);
+        std::cout << fileNames[i] << std::endl;
+
+        vector<Yolov4Object> objects;
+        detector.detect(img , objects);
+
+        stringstream ss;
+        for (auto object : objects)
+        {
+            auto person = img(object.rect);
+            int age, gender;
+            if (person.isContinuous())
+            {
+                ageGenderRecongnizer.recongnize(person, age, gender);
+            }
+            else
+            {
+                uchar *colorImgData = new uchar[person.total() * 3];
+                // 新建同等大小的Mat,通道为8UC3
+                Mat MatTemp(person.size(), CV_8UC3, colorImgData);
+                cv::cvtColor(person, MatTemp, CV_BGR2RGB);
+
+                ageGenderRecongnizer.recongnize(MatTemp, age, gender);
+                delete[] colorImgData;
+            }
+            rectangle(img, object.rect, Scalar(0, 255, 0));
+
+            ss.str("");
+            ss << "age:" << age;
+            putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
+            ss.str("");
+            ss << "gender:" << gender;
+            putText(img, ss.str(), Point(object.rect.x + 20, object.rect.y + 40), cv::FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 255));
+        }
+        cout << "count: " << objects.size() << endl;
+        imshow("person", img);
+        if (waitKey() == 27)
+            break;
+    }
+    #endif
 
     return 0;
 }

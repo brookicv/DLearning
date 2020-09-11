@@ -9,10 +9,6 @@ YoloTinyDetector::YoloTinyDetector(const std::string &paramPath, const std::stri
 
     mYolov4Net.load_param(paramPath.c_str());
     mYolov4Net.load_model(binPath.c_str());
-
-    mExtractor = std::make_shared<ncnn::Extractor>(mYolov4Net.create_extractor());
-    mExtractor->set_light_mode(true);
-    mExtractor->set_num_threads(mNumThreads);
 }
 
 cv::Mat YoloTinyDetector::letterbox_resize(const cv::Mat &src)
@@ -52,10 +48,14 @@ void YoloTinyDetector::detect(cv::Mat &img, std::vector<Yolov4Object> &objects)
     const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
     in.substract_mean_normalize(mean_vals, norm_vals);
 
-    mExtractor->input("data", in);
+    auto extractor = mYolov4Net.create_extractor();
+    extractor.set_light_mode(true);
+    extractor.set_num_threads(mNumThreads);
+
+    extractor.input("data", in);
 
     ncnn::Mat out;
-    mExtractor->extract("output", out);
+    extractor.extract("output", out);
 
     auto scale = std::min(static_cast<float>(mTargetSize) / static_cast<float>(img_w),
                           static_cast<float>(mTargetSize) / static_cast<float>(img_h));

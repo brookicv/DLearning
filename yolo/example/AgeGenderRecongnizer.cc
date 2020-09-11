@@ -19,11 +19,36 @@ AgeGenderRecongnizer::AgeGenderRecongnizer(const std::string &modelPath, int tar
     CV::ImageProcess::Config preProcessConfig;
     ::memcpy(preProcessConfig.mean, means, sizeof(means));
     ::memcpy(preProcessConfig.normal, norms, sizeof(norms));
-    preProcessConfig.sourceFormat = CV::BGR;
+    preProcessConfig.sourceFormat = CV::RGB;
     preProcessConfig.destFormat = CV::RGB;
     preProcessConfig.filterType = CV::BILINEAR;
 
    mPreProcess = std::shared_ptr<CV::ImageProcess>(CV::ImageProcess::create(preProcessConfig));
+}
+
+cv::Mat AgeGenderRecongnizer::letterbox_resize(const cv::Mat &src)
+{
+    auto src_width = static_cast<float>(src.cols);
+    auto src_height = static_cast<float>(src.rows);
+
+    auto ewidth_f = static_cast<float>(mTargetWidth);
+    auto eheight_f = static_cast<float>(mTargetHeight);
+
+    auto scale = ewidth_f / src_width > eheight_f / src_height ? eheight_f / src_height : ewidth_f / src_width;
+
+    auto width = static_cast<int>(scale * src_width);
+    auto height = static_cast<int>(scale * src_height);
+
+    cv::Mat dst;
+    cv::resize(src, dst, cv::Size(width, height));
+
+    auto top = (mTargetHeight - height) / 2;
+    auto bottom = mTargetHeight - top - height;
+    auto left = (mTargetWidth - width) / 2;
+    auto right = mTargetWidth - left - width;
+
+    cv::copyMakeBorder(dst, dst, top, bottom, left, right, cv::BORDER_CONSTANT);
+    return dst;
 }
 
 void AgeGenderRecongnizer::recongnize(cv::Mat &img, int &age, int &gender)
@@ -35,12 +60,13 @@ void AgeGenderRecongnizer::recongnize(cv::Mat &img, int &age, int &gender)
 
     CV::Matrix trans;
     // Dst -> [0, 1]
-    trans.postScale(1.0 / 192, 1.0 / 256);
+    trans.postScale(1.0 / mTargetHeight, 1.0 / mTargetWidth);
     //[0, 1] -> Src
     trans.postScale(originalWidth, originalHeight);
-    mPreProcess->setMatrix(trans);
+    // mPreProcess->setMatrix(trans);
 
     mPreProcess->convert(reinterpret_cast<uint8_t *>(img.data), originalWidth, originalHeight, 0, input);
+    input->printShape();
 
     // run interfence
     mNet->runSession(mSession);
